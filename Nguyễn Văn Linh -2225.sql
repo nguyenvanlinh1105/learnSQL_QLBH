@@ -171,7 +171,7 @@ VALUES
 set dateformat dmy
 INSERT INTO dbo.DonDatHang_HoaDon
 VALUES
-	('2225001327','2225000024','2225001024','23/1/2023',N'Vinh-Nghệ An','0123451234','12345','12/11/2023','14/11/2023','BT'),
+	('2225001328','2225000024','2225001024','23/1/2023',N'Vinh-Nghệ An','0123451234','12345','12/11/2023','14/11/2023','BT'),
 	('2225001424','2225000124','2225001124','13/2/2023',N'Nam Đàn-Nghệ An','0123456755','12346','12/11/2023','14/11/2023',default),
 	('2225001524','2225000224','2225002224','3/3/2023',N'Tương Dương-Nghệ An','0123456756','12347','12/11/2023','14/11/2023','ER'),
 	('2225001624','2225000324','2225003324','25/4/2023',N'Cửa Lò-Nghệ An','0123456757','12348','12/11/2023','14/11/2023','BT'),
@@ -253,7 +253,7 @@ VALUES
 --INSERT TABLE ChiTietPHieuNhap
 INSERT INTO ChiTietPhieuNhap
 VALUES 
-	('2225013024','2225014024',0,15000),
+	('2225001327','2225014024',0,15000),
 	('2225013124','2225014124',55,100000),
 	('2225013224','2225014224',10,200000),
 	('2225013324','2225014324',60,350000),
@@ -263,13 +263,15 @@ VALUES
 	('2225013724','2225014724',40,1950000),
 	('2225013824','2225014824',20,480000),
 	('2225013924','2225014924',0,3200000);
---SELECT * FROM dbo.ChiTietPhieuNhap;
+SELECT d.maHD FROM dbo.DonDatHang_HoaDon d 
+except
+SELECT c.maHD FROM dbo.ChiTietDonHang c
 
 --INSERT TABLE ChiTietDonHang
 INSERT INTO ChiTietDonHang
 VALUES
-	('2225001324','2225014024',0,15000),
-	('2225001424','2225014124',55,100000),
+	('2225001328','2225014024',0,15000),
+	('2225033524','2225014024',55,100000),
 	('2225001524','2225014224',10,200000),
 	('2225001624','2225014324',60,350000),
 	('2225001724','2225014424',100,20000),
@@ -510,10 +512,9 @@ ORDER BY d.ngayGiaoHang DESC
 
 
 --5Nếu tổng tiền lớn hơn 1.000.000 thì áp dụng giảm 10% và cập nhật lại tổng tiền mới cần trả; 
---6Nếu tổng tiền từ 400.000 đến dưới 1.000.000 thì tổng tiền không cần cộng phí ship;
-
---7Nếu tổng tiền nhỏ hơn 400.000 thì tổng tiền gồm tổng tiền hàng và phí ship (giả sử phí ship là 40.000) 
-SELECT TOP 1 k.tenKH, k.maKH ,d.maHD ,d.ngayGiaoHang , SUM(c.donGia*c.soLuongDat) as 'TongTien' , 
+    --Nếu tổng tiền từ 400.000 đến dưới 1.000.000 thì tổng tiền không cần cộng phí ship;
+    --Nếu tổng tiền nhỏ hơn 400.000 thì tổng tiền gồm tổng tiền hàng và phí ship (giả sử phí ship là 40.000) 
+SELECT k.tenKH, k.maKH ,d.maHD ,d.ngayGiaoHang , SUM(c.donGia*c.soLuongDat) as 'TongTien' , 
 	CASE 
         WHEN SUM(c.donGia * c.soLuongDat) > 1000000 THEN SUM(c.donGia * c.soLuongDat) * 0.9
 		WHEN SUM(c.donGia * c.soLuongDat) >= 400000 AND SUM(c.donGia * c.soLuongDat) < 1000000 THEN SUM(c.donGia * c.soLuongDat)
@@ -524,28 +525,161 @@ FROM dbo.DonDatHang_HoaDon d
 JOIN dbo.KhachHang k ON d.maKH = k.maKH
 JOIN dbo.ChiTietDonHang c ON c.maHD = d.maHD
 GROUP BY  k.tenKH,k.maKH,d.maHD,d.ngayGiaoHang 
-ORDER BY d.ngayGiaoHang DESC
 
 
 
---8Hãy viết đoạn lệnh để thực hiện yêu cầu:
+--6Hãy viết đoạn lệnh để thực hiện yêu cầu:
 	--kiểm tra xem có đơn hàng nào mà tồn tại số lượng mua lớn hơn số lượng hiện có 
       ---> nếu có thì cập nhật số lượng hiện còn của các sản phẩm nằm trong giỏ hàng mà có số lượng đặt lớn hơn số lượng hiện còn
 			--bằng cách gán về số lượng đặt là 0 
 
---9Viết đoạn lệnh để tính khuyến mãi theo điều kiện sau: nếu đơn hàng trên 1 triệu thì được giảm 10%,
+
+
+DECLARE @maHDToUpdate char(10);
+SELECT @maHDToUpdate = d.maHD
+FROM dbo.DonDatHang_HoaDon d 
+JOIN dbo.ChiTietDonHang c ON d.maHD = c.maHD 
+JOIN dbo.SanPham s ON c.maSP = s.maSP
+WHERE c.soLuongDat > soLuongHienCon
+	AND d.maHD = '2225001324'
+	AND ngayGiaoHang IS NULL
+	AND trangThaiDonHang IS NULL;
+
+IF @maHDToUpdate IS NOT NULL
+BEGIN
+	UPDATE dbo.ChiTietDonHang 
+	SET soLuongDat = 0  
+	WHERE maHD = @maHDToUpdate;
+END
+ELSE
+	PRINT N'Don hang duoc dat thanh cong';
+
+--7Viết đoạn lệnh để tính khuyến mãi theo điều kiện sau: nếu đơn hàng trên 1 triệu thì được giảm 10%,
 		--cứ tăng thêm 1 triệu nữa thì được giảm thêm 2% nữa (tối đa giảm 30%) 
 
---10Viết đoạn lệnh để đếm số lần mua của mỗi khách hàng, nếu số lần mua trên 5 thì hiển thị “Khách Vip”, ngược lại hiển thị “Khách tiềm năng” 
 
---Viết các hàm tính: 
+SELECT k.tenKH, k.maKH ,d.maHD ,d.ngayGiaoHang , SUM(c.donGia*c.soLuongDat) as 'TongTien' , 
+	CASE 
+        WHEN SUM(c.donGia * c.soLuongDat) > 1000000 THEN SUM(c.donGia * c.soLuongDat) * 0.9
+		WHEN SUM(c.donGia * c.soLuongDat) >2000000 THEN SUM(c.donGia * c.soLuongDat) *0.8
+		WHEN SUM(c.donGia * c.soLuongDat) >3000000 THEN SUM(c.donGia * c.soLuongDat)*0.7
+        ELSE SUM(c.donGia * c.soLuongDat)
+    END AS GiaSauKhiGiam
+FROM dbo.DonDatHang_HoaDon d 
+JOIN dbo.KhachHang k ON d.maKH = k.maKH
+JOIN dbo.ChiTietDonHang c ON c.maHD = d.maHD
+GROUP BY  k.tenKH,k.maKH,d.maHD,d.ngayGiaoHang 
+
+
+--8Viết đoạn lệnh để đếm số lần mua của mỗi khách hàng, nếu số lần mua trên 5 thì hiển thị “Khách Vip”,
+		--ngược lại hiển thị “Khách tiềm năng” 
+
+SELECT k.tenKH, k.maKH, COUNT(k.maKH) as 'So lan mua',
+	CASE	
+		WHEN COUNT(k.maKH)>5 THEN N'Khách Vip'
+		ELSE N'Khách tiem năng'
+	END AS LoaiKhachHang
+
+FROM dbo.KhachHang k
+JOIN dbo.DonDatHang_HoaDon dh ON k.maKH = dh.maKH
+JOIN dbo.ChiTietDonHang ct ON ct.maHD = dh.maHD
+GROUP BY k.tenKH , k.maKH
+    -- mặc dù ở DonDatHang_HoaDon có 17 row nhưng tổng ố lần mua ở đây chỉ có 15 là vì ở trong bảng khách hàng có 2 row
+		   -- maKH ==NULL nên nó không thể GROUP BY lại và select được 
+
+
+--Bai 2Viết các hàm tính: 
 --Thành tiền khi biết đơn giá và số lượng đặt 
-     --> tham số vào là đơn giá và số lượng đặt 
+     --> tham số vào là đơn giá và số lượng đặt
+
+CREATE FUNCTION Fn_ThanhTien(
+@donGia MONEY , @soLuong INT )
+RETURNS MONEY
+AS 
+BEGIN 
+	RETURN @donGia*@soLuong
+END ;
+
+select maHD, maSP, soLuongDat,
+    format(donGia,'##,#\ VNĐ','es-ES') as 'Đơn Giá',
+    format(dbo.Fn_ThanhTien(donGia, soLuongDat),'C0','vn-VN') as 'Thành tiền'
+from ChiTietDonHang
+order by maHD
+
 --tổng tiền cho mỗi đơn hàng khi biết mã đơn hàng 
 --> tham số vào là mã đơn hàng 
+ALTER TABLE dbo.ChiTietDonHang
+ALTER COLUMN maHD char(10);
+select * from dbo.ChiTietDonHang
+
+CREATE FUNCTION Fn_TongThanhTienDonHang(@maDonHang varchar(255)) 
+RETURNS MONEY 
+AS
+BEGIN 
+	DECLARE @tongThanhTien MONEY
+	SELECT @tongThanhTien = SUM(dbo.fn_ThanhTien(donGia, soLuongDat) )
+	FROM dbo.ChiTietDonHang ct
+	WHERE ct.maHD = @maDonHang
+	RETURN @tongThanhTien
+END 
+SELECT 
+    maHD,
+    format(dbo.Fn_TongThanhTienDonHang(maHD), 'C0', 'vn-VN') as 'Tổng thành tiền đơn hàng'
+FROM ChiTietDonHang
+
+
 --tính thành tiền sau khi đã áp dụng khuyến mãi khi biết mã khuyến mãi, số lượng bán, đơn giá 
 
 --> tham số vào là gì? 
+CREATE FUNCTION TinhThanhTienSauKhuyenMai(
+    @maKhuyenMai INT,
+    @soLuongBan INT,
+    @donGia MONEY
+)
+RETURNS MONEY
+AS
+BEGIN
+    DECLARE @thanhTien MONEY;
+	-- thực hiện tính toán 
+    RETURN @thanhTien;
+END;
+
+-- Giả sử có một bảng tên là KhuyenMai
+CREATE FUNCTION TinhThanhTienSauKhuyenMai(
+    @maKhuyenMai INT,
+    @soLuongBan INT,
+    @donGia MONEY
+)
+RETURNS MONEY
+AS
+BEGIN
+    DECLARE @thanhTien MONEY;
+
+    DECLARE @tyLeKhuyenMai FLOAT;
+    SELECT @tyLeKhuyenMai = TyLeKhuyenMai
+    FROM BangKhuyenMai 
+    WHERE MaKhuyenMai = @maKhuyenMai;
+    SET @thanhTien = @soLuongBan * @donGia * (1 - @tyLeKhuyenMai);
+
+    RETURN ISNULL(@thanhTien, 0);
+END;
+
 --tổng tiền thu vào theo từng tháng – năm, hoặc từ ngày đến ngày (hoặc ngày bắt đầu và ngày kết thúc) 
 -->tham số vào là gì? 
-	*/
+CREATE FUNCTION TinhTongTienThu(
+    @thang INT,
+    @nam INT,
+    @ngayBatDau DATE,
+    @ngayKetThuc DATE
+)
+RETURNS MONEY
+AS
+BEGIN
+    DECLARE @tongTienThu MONEY;
+	
+
+    RETURN @tongTienThu;
+END;
+
+
+	
