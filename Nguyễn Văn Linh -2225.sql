@@ -691,9 +691,33 @@ returns char(10)
 as
 begin 
 	-- tinh id tiep theo
-	
+	Declare @idNext bigint;
+	select @idNext = convert(decimal,max(maSP))+1 from dbo.SanPham
 	return convert(char,format(@idNext,'D10'));
 end
 SELECT dbo.fn_IdAuto() AS maspnext;
 -- Sử dụng hàm trong truy vấn SELECT
+select * from dbo.ChiTietDonHang
 
+
+
+DECLARE @tongTien MONEY, @giam MONEY;
+-- Giả sử dbo.fn_tongtien là hàm tính tổng giá trị đơn hàng
+SET @tongTien = dbo.Fn_TongThanhTienDonHang('2225001324') / 1000000;
+SET @giam = 0;
+print @tongTien
+SET @giam = @giam + CASE WHEN @tongTien > 1 THEN 10 ELSE 0 END;
+print @giam
+WHILE @tongTien > 2
+BEGIN 
+    SET @giam = @giam + 2;
+    SET @tongTien = @tongTien - 1;
+END
+IF @giam > 30 
+    SET @giam = 30;
+DECLARE @SoTienGiamGia MONEY;
+SET @SoTienGiamGia = @tongTien * (@giam / 100);
+
+-- In kết quả
+PRINT N'Số tiền giảm cho đơn hàng này là:';
+PRINT @SoTienGiamGia;
