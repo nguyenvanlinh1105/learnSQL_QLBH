@@ -681,5 +681,19 @@ BEGIN
     RETURN @tongTienThu;
 END;
 
+-- Tạo PROCEDURE;
 
+-- Câu 1 b;
+-- Function 
+ALTER FUNCTION fn_IdAuto
+()
+returns char(10)
+as
+begin 
+	-- tinh id tiep theo
 	
+	return convert(char,format(@idNext,'D10'));
+end
+SELECT dbo.fn_IdAuto() AS maspnext;
+-- Sử dụng hàm trong truy vấn SELECT
+
