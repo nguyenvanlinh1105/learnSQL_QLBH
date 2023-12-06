@@ -282,36 +282,25 @@ VALUES
 	('2225002324','2225014924',0,3200000);
 --SELECT * FROM dbo.ChiTietDonHang;
 --1Hãy hiển thị thông tin sản phẩm có số lần nhập hàng về nhiều nhất 
+
 	SELECT TOP 1 c.*
 	FROM dbo.ChiTietPhieuNhap  as c 
 	ORDER BY soLuongNhap DESC
+
+
 --2thống kê những sản phẩm thuộc top 3 bán chạy nhất  (lưu ý không phải 3 dòng – có thể nhiều dòng miễn là đảm bảo nằm trong top 3) è subquery 
 -- Top 3 sản phẩm bán chạy nhất
--- cách 1:  hoạt động đúng khi chỉ một dơn bán 1 lần kể từ lần thứ 2 trở đi là sẽ hoạt sai.
-select * 
-from dbo.SanPham 
-where maSP in(select maSP
-			from dbo.ChiTietDonHang ct
-			where soLuongDat
-			in(select distinct top (3)
-					sum(soluongDat) as total
-					from dbo.ChiTietDonHang c 
-					group by maHD, maSP
-					Order by sum(soLuongDat) DESC)
-)
-
--- cách 2: đúng với mọi trường hợp
-select s.maSP, s.tenSP
+select s.maSP, s.tenSP,sum(ct.soLuongDat) as soLuongDat
 from dbo.SanPham s, dbo.ChiTietDonHang ct
 where s.maSP = ct.maSP
 group by s.maSP, s.tenSP
 having sum(ct.soLuongDat) in(
 	select distinct top 3 sum(c.soLuongDat)
 	from dbo.ChiTietDonHang as c
-	group by maHD 
+	group by maSP 
 	order by  sum(c.soLuongDat) DESC
 )
-order by sum(ct.soLuongDat);
+order by sum(ct.soLuongDat) DESC
 
 --3thống kê những sản phẩm chưa bán được cái nào  (not in) 
 	select *from dbo.SanPham
@@ -558,17 +547,30 @@ ELSE
 		--cứ tăng thêm 1 triệu nữa thì được giảm thêm 2% nữa (tối đa giảm 30%) 
 
 
-SELECT k.tenKH, k.maKH ,d.maHD ,d.ngayGiaoHang , SUM(c.donGia*c.soLuongDat) as 'TongTien' , 
-	CASE 
-        WHEN SUM(c.donGia * c.soLuongDat) > 1000000 THEN SUM(c.donGia * c.soLuongDat) * 0.9
-		WHEN SUM(c.donGia * c.soLuongDat) >2000000 THEN SUM(c.donGia * c.soLuongDat) *0.8
-		WHEN SUM(c.donGia * c.soLuongDat) >3000000 THEN SUM(c.donGia * c.soLuongDat)*0.7
-        ELSE SUM(c.donGia * c.soLuongDat)
-    END AS GiaSauKhiGiam
-FROM dbo.DonDatHang_HoaDon d 
-JOIN dbo.KhachHang k ON d.maKH = k.maKH
-JOIN dbo.ChiTietDonHang c ON c.maHD = d.maHD
-GROUP BY  k.tenKH,k.maKH,d.maHD,d.ngayGiaoHang 
+ALTER FUNCTION dbo.Fn_tinhTienGiamChoDonHang
+(@maHD char(10))
+RETURNS MONEY 
+AS
+BEGIN
+	DECLARE @tongTien MONEY, @giam MONEY;
+	SET @tongTien = dbo.Fn_TongThanhTienDonHang(@maHD) / 1000000;
+	SET @giam = 0;
+	SET @giam = @giam + CASE WHEN @tongTien > 1 THEN 10 ELSE 0 END;
+	WHILE @tongTien > 2
+	BEGIN 
+		SET @giam = @giam + 2;
+		SET @tongTien = @tongTien - 1;
+	END
+	IF @giam > 30 
+		SET @giam = 30;
+	DECLARE @SoTienGiamGia MONEY;
+	SET @SoTienGiamGia = @tongTien * (@giam / 100)*1000000
+	RETURN @SoTienGiamGia
+END;
+
+SELECT maHD,sum(soLuongDat*donGia) as tongTien,  dbo.Fn_tinhTienGiamChoDonHang(maHD) as TienGiam, sum(soLuongDat*donGia)-dbo.Fn_tinhTienGiamChoDonHang(maHD) as SoTienPhaiTra
+FROM dbo.ChiTietDonHang
+GROUP BY maHD
 
 
 --8Viết đoạn lệnh để đếm số lần mua của mỗi khách hàng, nếu số lần mua trên 5 thì hiển thị “Khách Vip”,
@@ -667,23 +669,31 @@ END;
 
 --tổng tiền thu vào theo từng tháng – năm, hoặc từ ngày đến ngày (hoặc ngày bắt đầu và ngày kết thúc) 
 -->tham số vào là gì? 
-CREATE FUNCTION TinhTongTienThu(
-    @thang INT,
-    @nam INT,
-    @ngayBatDau DATE,
-    @ngayKetThuc DATE
+CREATE FUNCTION dbo.func_TongTienThuTheoTG (
+    @ThangNam VARCHAR(7) = NULL,
+    @NgayBatDau DATE = NULL,
+    @NgayKetThuc DATE = NULL
 )
 RETURNS MONEY
 AS
 BEGIN
-    DECLARE @tongTienThu MONEY;
-	
+    DECLARE @TongTien MONEY;
 
-    RETURN @tongTienThu;
+    SELECT @TongTien = SUM(DonGia * SoLuongDat)
+    FROM ChiTietDonHang AS c 
+    JOIN dbo.DonDatHang_HoaDon AS d ON c.maHD = d.maHD
+    WHERE 
+        (@ThangNam IS NOT NULL AND FORMAT(d.ngayThanhToan, 'yyyy-MM') = @ThangNam)
+        OR 
+        (@NgayBatDau IS NOT NULL AND @NgayKetThuc IS NOT NULL AND ngayThanhToan BETWEEN @NgayBatDau AND @NgayKetThuc);
+
+    RETURN ISNULL(@TongTien, 0);
 END;
 
 
-
+select * 
+    FROM ChiTietDonHang AS c 
+    JOIN dbo.DonDatHang_HoaDon AS d ON c.maHD = d.maHD
 -- Câu 1 b-- làm với cách làm khác
 
 -- Function 
@@ -801,33 +811,7 @@ EXEC dbo.ThanhTienKhuyenMaiProcedure
     @soLuongBan= 30,
     @donGia =1000;
 
-CREATE FUNCTION dbo.Fn_TongTienThu (
-    @ThangNam VARCHAR(7) = NULL,
-    @NgayBatDau DATE = NULL,
-    @NgayKetThuc DATE = NULL
-)
-RETURNS MONEY
-AS
-BEGIN
-    DECLARE @TongTien MONEY;
-
-    SELECT @TongTien = SUM(DonGia * SoLuongDat)
-    FROM ChiTietDonHang
-    WHERE 
-        (@ThangNam IS NOT NULL AND FORMAT(Ngay, 'yyyy-MM') = @ThangNam)
-        OR 
-        (@NgayBatDau IS NOT NULL AND @NgayKetThuc IS NOT NULL AND Ngay BETWEEN @NgayBatDau AND @NgayKetThuc);
-
-    RETURN ISNULL(@TongTien, 0);
-END;
-
--- check
--- Ví dụ: tính tổng tiền thu vào cho tháng 01-2023
-DECLARE @TongTien MONEY;
-SET @TongTien = dbo.Fn_TongTienThu(@ThangNam = '2023-01');
-PRINT @TongTien;
-
--- PROCEDURE
+-- PROCEDURE-- câu 2 d ;
 CREATE PROCEDURE dbo.pro_TongTienThuTheoTG (
     @ThangNam VARCHAR(7) = NULL,
     @NgayBatDau DATE = NULL,
@@ -848,4 +832,4 @@ BEGIN
     SELECT ISNULL(@TongTien, 0) AS 'TongTien';
 END;
 
-EXEC dbo.pro_TongTienThuTheoTG @ThangNam = '2023-02-12';
+EXEC dbo.pro_TongTienThuTheoTG @ThangNam = '2023-6' ;
