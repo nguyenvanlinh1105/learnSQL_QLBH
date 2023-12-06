@@ -631,8 +631,8 @@ FROM ChiTietDonHang
 --tính thành tiền sau khi đã áp dụng khuyến mãi khi biết mã khuyến mãi, số lượng bán, đơn giá 
 
 --> tham số vào là gì? 
-CREATE FUNCTION TinhThanhTienSauKhuyenMai(
-    @maKhuyenMai INT,
+CREATE FUNCTION TinhThanhTienSKhuyenMai(
+    @KhuyenMai INT,
     @soLuongBan INT,
     @donGia MONEY
 )
@@ -640,10 +640,11 @@ RETURNS MONEY
 AS
 BEGIN
     DECLARE @thanhTien MONEY;
-	-- thực hiện tính toán 
+	 SET @thanhTien = @soLuongBan * @donGia * (1 - @KhuyenMai);
     RETURN @thanhTien;
 END;
 
+select dbo.TinhThanhTienSKhuyenMai(0.2, 30, 1000)
 -- Giả sử có một bảng tên là KhuyenMai
 CREATE FUNCTION TinhThanhTienSauKhuyenMai(
     @maKhuyenMai INT,
@@ -681,9 +682,10 @@ BEGIN
     RETURN @tongTienThu;
 END;
 
--- Tạo PROCEDURE;
 
--- Câu 1 b;
+
+-- Câu 1 b-- làm với cách làm khác
+
 -- Function 
 ALTER FUNCTION fn_IdAuto
 ()
@@ -700,24 +702,150 @@ SELECT dbo.fn_IdAuto() AS maspnext;
 select * from dbo.ChiTietDonHang
 
 
+ALTER FUNCTION dbo.Fn_tinhTienGiamChoDonHang
+(@maHD char(10))
+RETURNS MONEY 
+AS
+BEGIN
+	DECLARE @tongTien MONEY, @giam MONEY;
+	SET @tongTien = dbo.Fn_TongThanhTienDonHang(@maHD) / 1000000;
+	SET @giam = 0;
+	SET @giam = @giam + CASE WHEN @tongTien > 1 THEN 10 ELSE 0 END;
+	WHILE @tongTien > 2
+	BEGIN 
+		SET @giam = @giam + 2;
+		SET @tongTien = @tongTien - 1;
+	END
+	IF @giam > 30 
+		SET @giam = 30;
+	DECLARE @SoTienGiamGia MONEY;
+	SET @SoTienGiamGia = @tongTien * (@giam / 100)*1000000
+	RETURN @SoTienGiamGia
+END;
 
-DECLARE @tongTien MONEY, @giam MONEY;
--- Giả sử dbo.fn_tongtien là hàm tính tổng giá trị đơn hàng
-SET @tongTien = dbo.Fn_TongThanhTienDonHang('2225001324') / 1000000;
-SET @giam = 0;
-print @tongTien
-SET @giam = @giam + CASE WHEN @tongTien > 1 THEN 10 ELSE 0 END;
-print @giam
-WHILE @tongTien > 2
+SELECT maHD,sum(soLuongDat*donGia) as tongTien,  dbo.Fn_tinhTienGiamChoDonHang(maHD) as TienGiam, sum(soLuongDat*donGia)-dbo.Fn_tinhTienGiamChoDonHang(maHD) as SoTienPhaiTra
+FROM dbo.ChiTietDonHang
+GROUP BY maHD
+
+
+
+-- -- Tạo PROCEDURE;
+-- câu 7a
+CREATE PROCEDURE TinhTienGiamChoDonHangProcedure
+    @maHD CHAR(10)
+AS
+BEGIN
+    DECLARE @tongTien MONEY, @giam MONEY, @SoTienGiamGia MONEY;
+    SET @tongTien = dbo.Fn_TongThanhTienDonHang(@maHD) / 1000000;
+    SET @giam = 0;
+    SET @giam = @giam + CASE WHEN @tongTien > 1 THEN 10 ELSE 0 END;
+    WHILE @tongTien > 2
+    BEGIN 
+        SET @giam = @giam + 2;
+        SET @tongTien = @tongTien - 1;
+    END
+    IF @giam > 30 
+        SET @giam = 30;
+    SET @SoTienGiamGia = @tongTien * (@giam / 100) * 1000000;
+    SELECT @SoTienGiamGia AS 'SoTienGiamGia';
+END;
+EXEC TinhTienGiamChoDonHangProcedure @maHD = '2225001324';
+
+-- câu 2 a 
+CREATE PROCEDURE ThanhTienProcedure
+    @donGia MONEY,
+    @soLuong INT
+AS 
 BEGIN 
-    SET @giam = @giam + 2;
-    SET @tongTien = @tongTien - 1;
-END
-IF @giam > 30 
-    SET @giam = 30;
-DECLARE @SoTienGiamGia MONEY;
-SET @SoTienGiamGia = @tongTien * (@giam / 100);
+    SELECT
+        @donGia AS DonGia,
+        @soLuong AS SoLuong,
+        format(@donGia * @soLuong, 'C0', 'vn-VN') AS 'ThanhTien';
+END;
 
--- In kết quả
-PRINT N'Số tiền giảm cho đơn hàng này là:';
-PRINT @SoTienGiamGia;
+EXEC ThanhTienProcedure @donGia = 10000, @soLuong = 5;
+
+-- câu 2b
+CREATE PROCEDURE TongThanhTienDonHangProcedure
+    @maDonHang VARCHAR(255)
+AS
+BEGIN
+    DECLARE @tongThanhTien MONEY;
+
+    SELECT @tongThanhTien = SUM(dbo.fn_ThanhTien(donGia, soLuongDat))
+    FROM dbo.ChiTietDonHang ct
+    WHERE ct.maHD = @maDonHang;
+
+    SELECT @tongThanhTien AS 'TongThanhTien';
+END;
+EXEC TongThanhTienDonHangProcedure @maDonHang = '2225001324';
+
+
+-- câu 2 c
+CREATE PROCEDURE ThanhTienKhuyenMaiProcedure
+    @KhuyenMai INT,
+    @soLuongBan INT,
+    @donGia MONEY
+AS
+BEGIN
+    DECLARE @thanhTien MONEY;
+
+    SET @thanhTien = @soLuongBan * @donGia * (1 - @KhuyenMai);
+
+    SELECT @thanhTien AS 'ThanhTien';
+END;
+
+
+EXEC dbo.ThanhTienKhuyenMaiProcedure
+ @KhuyenMai = 0.2,
+    @soLuongBan= 30,
+    @donGia =1000;
+
+CREATE FUNCTION dbo.Fn_TongTienThu (
+    @ThangNam VARCHAR(7) = NULL,
+    @NgayBatDau DATE = NULL,
+    @NgayKetThuc DATE = NULL
+)
+RETURNS MONEY
+AS
+BEGIN
+    DECLARE @TongTien MONEY;
+
+    SELECT @TongTien = SUM(DonGia * SoLuongDat)
+    FROM ChiTietDonHang
+    WHERE 
+        (@ThangNam IS NOT NULL AND FORMAT(Ngay, 'yyyy-MM') = @ThangNam)
+        OR 
+        (@NgayBatDau IS NOT NULL AND @NgayKetThuc IS NOT NULL AND Ngay BETWEEN @NgayBatDau AND @NgayKetThuc);
+
+    RETURN ISNULL(@TongTien, 0);
+END;
+
+-- check
+-- Ví dụ: tính tổng tiền thu vào cho tháng 01-2023
+DECLARE @TongTien MONEY;
+SET @TongTien = dbo.Fn_TongTienThu(@ThangNam = '2023-01');
+PRINT @TongTien;
+
+-- PROCEDURE
+CREATE PROCEDURE dbo.pro_TongTienThuTheoTG (
+    @ThangNam VARCHAR(7) = NULL,
+    @NgayBatDau DATE = NULL,
+    @NgayKetThuc DATE = NULL
+)
+AS
+BEGIN
+    DECLARE @TongTien MONEY;
+
+    SELECT @TongTien = SUM(DonGia * SoLuongDat)
+    FROM ChiTietDonHang as c 
+	JOIN dbo.DonDatHang_HoaDon as d ON c.maHD = d.maHD
+    WHERE 
+        (@ThangNam IS NOT NULL AND FORMAT(d.ngayThanhToan, 'yyyy-MM') = @ThangNam)
+        OR 
+        (@NgayBatDau IS NOT NULL AND @NgayKetThuc IS NOT NULL AND ngayThanhToan BETWEEN @NgayBatDau AND @NgayKetThuc);
+
+    SELECT ISNULL(@TongTien, 0) AS 'TongTien';
+END;
+
+EXEC dbo.pro_TongTienThuTheoTG @ThangNam = '2023-02-12';
