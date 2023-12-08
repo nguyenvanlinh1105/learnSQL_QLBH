@@ -340,12 +340,18 @@ GROUP BY MONTH(ngayThanhToan), YEAR(ngayThanhToan)
 HAVING SUM(ctdh.donGia*soLuongDat) > 2000000;
 
 --8thống kê số lượng khách theo từng tỉnh/thành phố (sắp xếp giảm dần) 
-					---(count – group by - order by) dựa trên việc bổ sung 3 thực thể: Phường_Xã, Quận_Huyện, Tỉnh_ThànhPhố 
+		---(count – group by - order by) dựa trên việc bổ sung 3 thực thể: Phường_Xã, Quận_Huyện, Tỉnh_ThànhPhố 
 	SELECT k.diaChiKH, Count(k.maKH) as soLuong
 	FROM dbo.KhachHang k
 		JOIN dbo.DonDatHang_HoaDon ddh ON k.maKH= ddh.maKH
 	GROUP BY k.diaChiKH
 	ORDER BY k.diaChiKH DESC
+
+	SELECT k.diaChiKH, COUNT(k.maKH) as soLuong 
+	FROM dbo.KhachHang k , dbo.DonDatHang_HoaDon as dhd
+	WHERE k.maKH = dhd.maKH 
+	GROUP BY k.diaChiKH 
+	Order by k.diaChiKH DESC
 
 --9thống kê giá trung bình, giá max, giá min nhập hàng cho mỗi sản phẩm 4
 -- Insert thêm dữ liệu 
