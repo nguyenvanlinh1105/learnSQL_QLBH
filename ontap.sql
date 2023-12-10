@@ -96,3 +96,10 @@ GROUP BY MONTH(dhd.ngayThanhToan) , YEAR(dhd.ngayThanhToan)
 HAVING SUM(c.donGia*c.soLuongDat) >2000000
 select * from dbo.DonDatHang_HoaDon
 
+--8thống kê số lượng khách theo từng tỉnh/thành phố (sắp xếp giảm dần) 
+		---(count – group by - order by) dựa trên việc bổ sung 3 thực thể: Phường_Xã, Quận_Huyện, Tỉnh_ThànhPhố
+SELECT dhd.diaChiGiaoHang , COUNT (k.maKH)as soLuong
+FROM dbo.DonDatHang_HoaDon as dhd
+JOIN dbo.KhachHang as k ON k.maKH = dhd.maKH
+GROUP BY dhd.diaChiGiaoHang 
+ORDER BY COUNT(k.maKH) desc
