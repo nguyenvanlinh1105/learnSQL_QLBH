@@ -206,21 +206,44 @@ WHERE CT.giaNhap = (SELECT MAX(giaNhap) FROM dbo.ChiTietPhieuNhap)
 --2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng sản phẩm, và chèn dữ liệu vào bảng sản phẩm 
 
 
--- Chèn bản ghi mới vào bảng SanPham
+CREATE FUNCTION dbo.fn_NextID()
+RETURNS CHAR(10) 
+AS 
+BEGIN 
+	DECLARE @IdNext bigint;
+	SELECT @IdNext = convert(decimal,max(maSP) )+1 FROM dbo.SanPham
+	RETURN @IdNext;
+END
 INSERT INTO SanPham ( maSP, tenSP, donGiaBan, soLuongHienCon, soLuongCanDuoi)
-VALUES ( CAST(@NextId AS VARCHAR(10)), N'Bánh kẹo hải hà', 10000, 50, 10);
+VALUES (dbo.fn_NextId(), N'Bánh kẹo hải hà', 10000, 50, 10);
+select * from dbo.SanPham
 
--- Tìm giá trị id tiếp theo
-ALTER FUNCTION fn_IdAuto
-()
-returns char(10)
-as
-begin 
-	-- tinh id tiep theo
-	Declare @idNext bigint;
-	select @idNext = convert(decimal,max(maSP))+1 from dbo.SanPham
-	return convert(char,format(@idNext,'D10'));
-end
-SELECT dbo.fn_IdAuto() AS maspnext;
--- Sử dụng hàm trong truy vấn SELECT
-select * from dbo.ChiTietDonHang
+
+--2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng sản phẩm, và chèn dữ liệu vào bảng sản phẩm 
+CR
+-- Tạo kiểu dữ liệu bảng
+CREATE TYPE dbo.SanPhamTableType AS TABLE
+(
+    maSP CHAR(10)
+);
+
+-- Tạo thủ tục lưu trữ
+CREATE PROCEDURE dbo.usp_GetNextID
+    @SanPhamTable dbo.SanPhamTableType READONLY,
+    @NextID CHAR(10) OUTPUT
+AS 
+BEGIN
+    DECLARE @IdNext BIGINT;
+
+    -- Thực hiện logic để lấy next ID từ bảng được truyền vào
+    SELECT @IdNext = ISNULL(MAX(maSP), 0) + 1 FROM @SanPhamTable;
+
+    -- Chuyển đổi sang kiểu CHAR(10)
+    SET @NextID = CONVERT(CHAR(10), @IdNext);
+END;
+
+
+----------------------------------- --------------------
+--3Hãy viết đoạn lệnh để đếm số lần mua hàng của từng khách hàng,
+		--nếu số lần mua lớn hơn hoặc bằng 10 thì ghi ‘Khách hàng thân thiết’, ngược lại ghi ‘Khách hàng tiềm năng’ 
+		
