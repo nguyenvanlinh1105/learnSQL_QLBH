@@ -270,7 +270,7 @@ SELECT c.maHD FROM dbo.ChiTietDonHang c
 --INSERT TABLE ChiTietDonHang
 INSERT INTO ChiTietDonHang
 VALUES
-	('2225001328','2225014024',0,15000),
+	('2225001324','2225014224',0,15000),
 	('2225033524','2225014024',55,100000),
 	('2225001524','2225014224',10,200000),
 	('2225001624','2225014324',60,350000),
@@ -400,6 +400,7 @@ VALUES
 	ORDER BY count(ddh.maKH) DESC;
 --12hiển thị thông tin chi tiết của các sản phẩm mà có số lần nhập hàng nhiều nhất 
 			---(lưu ý trường hợp những sản phẩm cùng giá trị) with ties, hoặc có thể dùng subquery Select top 1 with ties …. 
+
 SELECT sp.maSP, sp.tenSP
 FROM dbo.SanPham as sp
 	JOIN dbo.ChiTietPhieuNhap as ct on ct.maSP= sp.maSP
@@ -412,22 +413,15 @@ HAVING count(ct.maSP) in (
 );
 
 
-
 --13hiển thị thông tin chi tiết của các nhà cung cấp mà có số lần nhập hàng lớn hơn 2 count – group - having 
-select * from dbo.NhaCungCap
+
 SELECT ncc.maNCC, ncc.tenNCC, count (pn.maNCC)
 FROM dbo.NhaCungCap as ncc
 	JOIN dbo.PhieuNhap as pn on pn.maNCC= ncc.maNCC
 	JOIN dbo.ChiTietPhieuNhap as ct on ct.maPN = pn.maPN
 GROUP BY ncc.maNCC, ncc.tenNCC
-HAVING count(pn.maNCC) in (
-	SELECT DISTINCT TOP 1 count(p.maNCC)
-	FROM dbo.PhieuNhap as p
-	GROUP BY p.maNCC
-	HAVING count(p.maNCC)>2
-);
-select * from PhieuNhap
-order by maNCC DESC
+HAVING count(pn.maNCC) >2
+
 
 /*
 Câu 1:Hãy viết câu truy vấn hiển thị số lượng còn của sản phẩm,
@@ -449,10 +443,10 @@ còn đối với đơn hàng có mã đơn hàng là 'DH05' (hoặc tùy mã th
 ngược lại hiển thị câu thông báo "Đặt hàng thành công!"
 */
 if exists (SELECT ddh.*
-FROM dbo.DonDatHang_HoaDon ddh, dbo.ChiTietDonHang ctdh, SanPham as sp
-WHERE ddh.maHD = ctdh.maHD and ctdh.maSP = sp.maSP
-and ddh.maHD ='2225001324'
-and ctdh.soLuongDat >sp.soLuongHienCon)
+	FROM dbo.DonDatHang_HoaDon ddh, dbo.ChiTietDonHang ctdh, SanPham as sp
+	WHERE ddh.maHD = ctdh.maHD and ctdh.maSP = sp.maSP
+	and ddh.maHD ='2225001324'
+	and ctdh.soLuongDat >sp.soLuongHienCon)
 	print N'Không đủ sô lượng đặt'
 else
 	print N'Đăt hàng thành công'
