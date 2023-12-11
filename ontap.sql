@@ -240,10 +240,36 @@ END;
 
 
 --2.1Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng nhan vien, và chèn dữ liệu vào bảng nhanvien
-select * from dbo.NhanVien
-Update 
 
+CREATE FUNCTION dbo.fn_IdNextNhanVien ()
+RETURNS CHAR(10) 
+AS
+BEGIN 
+	DECLARE @idNext decimal;
+	SELECT @idNext = CONVERT(DECIMAL,MAX(maNV))+1 FROM dbo.NhanVien
+	RETURN @idNext;
+END;
+select * from dbo.NhanVien
+set dateformat dmy
+INSERT INTO dbo.NhanVien
+VALUES 
+	(dbo.fn_IdNextNhanVien (),N'Nguyễn Văn Linh','0033456089','h23@gmail.com','F','21/12/2001',205000)
+
+	--2.2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng khach hang, và chèn dữ liệu vào bảng khach hang
+
+CREATE FUNCTION dbo.Fn_IdnextKhachHang()
+RETURNS Char(10)
+AS
+BEGIN 
+	DECLARE @idNext decimal;
+	SELECT @idNext = CONVERT(DECIMAL,MAX(maKH) ) +1 FROM dbo.KhachHang
+	RETURN @idNext;
+END;
+
+		-- check 
+INSERT INTO dbo.KhachHang
+VALUES
+	(dbo.Fn_IdnextKhachHang(),N'Nguyễn Văn Linh',N'Hải Châu','0123458789','h4@gmail.com',200000)
 ----------------------------------- --------------------
 --3Hãy viết đoạn lệnh để đếm số lần mua hàng của từng khách hàng,
 		--nếu số lần mua lớn hơn hoặc bằng 10 thì ghi ‘Khách hàng thân thiết’, ngược lại ghi ‘Khách hàng tiềm năng’ 
-		
