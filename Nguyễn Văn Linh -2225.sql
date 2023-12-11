@@ -499,6 +499,9 @@ JOIN ChiTietDonHang c ON d.maHD =c.maHD
 GROUP BY  k.tenKH,k.maKH,d.maHD,d.ngayGiaoHang 
 ORDER BY d.ngayGiaoHang DESC
 
+select * from dbo.DonDatHang_HoaDon 
+ORDER BY 
+
 
 --5Nếu tổng tiền lớn hơn 1.000.000 thì áp dụng giảm 10% và cập nhật lại tổng tiền mới cần trả; 
     --Nếu tổng tiền từ 400.000 đến dưới 1.000.000 thì tổng tiền không cần cộng phí ship;

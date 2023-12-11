@@ -273,3 +273,32 @@ VALUES
 ----------------------------------- --------------------
 --3Hãy viết đoạn lệnh để đếm số lần mua hàng của từng khách hàng,
 		--nếu số lần mua lớn hơn hoặc bằng 10 thì ghi ‘Khách hàng thân thiết’, ngược lại ghi ‘Khách hàng tiềm năng’ 
+-- Cach1  voi JOIN 
+
+SELECT K.maKH, COUNT(D.maHD) AS 'So lan mua',
+	CASE	
+		WHEN COUNT(D.maHD) >5 THEN N'Khach hang than thiet'
+		ELSE N'Khach hang tiem nang'
+	END AS GHIChu
+FROM dbo.KhachHang AS K
+JOIN dbo.DonDatHang_HoaDon AS D ON K.maKH = D.maKH
+GROUP BY K.maKH 
+
+-- CACH 2 Với where\
+SELECT k.maKH , COUNT(DHD.maHD) SOLANMUA,
+	CASE	
+		WHEN COUNT(DHD.maHD) >5 THEN N'Khach Hang than thiet'
+		ELSE N'Khach hang tiem nang'
+	END AS GhiChu
+FROM dbo.KhachHang AS K, dbo.DonDatHang_HoaDon AS DHD
+WHERE K.maKH = DHD.maKH 
+GROUP BY K.maKH 
+
+--4Hãy viết đoạn lệnh để tính tiền cho đơn hàng mới nhất (đơn hàng vừa được mua).  
+		--(Đơn hàng mới nhất là đơn hàng có thời gian gần nhất) 
+
+SELECT DHD.maHD, K.maKH, K.tenKH, SUM(CTDH.donGia*CTDH.soLuongDat)AS ThanhTien
+FROM dbo.KhachHang AS K
+JOIN dbo.DonDatHang_HoaDon AS DHD ON K.maKH = DHD.maKH
+JOIN dbo.ChiTietDonHang AS CTDH ON CTDH.maHD= DHD.maHD 
+GROUP BY DHD.maHD, K.maKH, K.tenKH
