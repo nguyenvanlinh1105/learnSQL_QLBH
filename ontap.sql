@@ -191,6 +191,7 @@ else
 
 
 
+
 	-----	-----	-----	-----	-----	-----	-----	-----
 	--1Hãy xuất dạng Text giá tiền của những sản phẩm có giá tiền lớn nhất 
 SELECT CONCAT(N'Sản phẩm ',maSP,N' có giá bán là ',FORMAT(donGiaBan,'C', 'vi-VN')) AS GiaTien
@@ -218,30 +219,29 @@ INSERT INTO SanPham ( maSP, tenSP, donGiaBan, soLuongHienCon, soLuongCanDuoi)
 VALUES (dbo.fn_NextId(), N'Bánh kẹo hải hà', 10000, 50, 10);
 select * from dbo.SanPham
 
-
---2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng sản phẩm, và chèn dữ liệu vào bảng sản phẩm 
-CR
--- Tạo kiểu dữ liệu bảng
-CREATE TYPE dbo.SanPhamTableType AS TABLE
-(
-    maSP CHAR(10)
-);
-
--- Tạo thủ tục lưu trữ
-CREATE PROCEDURE dbo.usp_GetNextID
-    @SanPhamTable dbo.SanPhamTableType READONLY,
-    @NextID CHAR(10) OUTPUT
+-- Nếu maSP có cả chữ thì phải làm như thế nào 
+CREATE FUNCTION dbo.fn_NextID()
+RETURNS CHAR(10) 
 AS 
-BEGIN
-    DECLARE @IdNext BIGINT;
+BEGIN 
+    DECLARE @IdNext bigint;
+    
+    -- Lấy phần số từ chuỗi maSP (giả sử maSP có dạng "ABC123")
+    SELECT @IdNext = ISNULL(MAX(CAST(SUBSTRING(maSP, PATINDEX('%[0-9]%', maSP), LEN(maSP)) AS BIGINT)), 0) + 1
+    FROM dbo.SanPham;
 
-    -- Thực hiện logic để lấy next ID từ bảng được truyền vào
-    SELECT @IdNext = ISNULL(MAX(maSP), 0) + 1 FROM @SanPhamTable;
+    -- Nếu không tìm thấy số, sử dụng giá trị mặc định là 1
+    IF @IdNext IS NULL
+        SET @IdNext = 1;
 
-    -- Chuyển đổi sang kiểu CHAR(10)
-    SET @NextID = CONVERT(CHAR(10), @IdNext);
+    RETURN CONVERT(CHAR(10), @IdNext);
 END;
 
+
+
+--2.1Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng nhan vien, và chèn dữ liệu vào bảng nhanvien
+select * from dbo.NhanVien
+Update 
 
 ----------------------------------- --------------------
 --3Hãy viết đoạn lệnh để đếm số lần mua hàng của từng khách hàng,
