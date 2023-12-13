@@ -297,8 +297,29 @@ GROUP BY K.maKH
 --4Hãy viết đoạn lệnh để tính tiền cho đơn hàng mới nhất (đơn hàng vừa được mua).  
 		--(Đơn hàng mới nhất là đơn hàng có thời gian gần nhất) 
 
-SELECT DHD.maHD, K.maKH, K.tenKH, SUM(CTDH.donGia*CTDH.soLuongDat)AS ThanhTien
+SELECT TOP 1 DHD.maHD, K.maKH, K.tenKH,DHD.ngayTaoDH, SUM(CTDH.donGia*CTDH.soLuongDat)AS ThanhTien
 FROM dbo.KhachHang AS K
 JOIN dbo.DonDatHang_HoaDon AS DHD ON K.maKH = DHD.maKH
 JOIN dbo.ChiTietDonHang AS CTDH ON CTDH.maHD= DHD.maHD 
-GROUP BY DHD.maHD, K.maKH, K.tenKH
+GROUP BY DHD.maHD, K.maKH, K.tenKH,DHD.ngayTaoDH
+ORDER BY DHD.ngayTaoDH DESC; 
+
+   --4.1 Tạo hàm nhập vào maKhachHang và in ra đơn hàng mới nhất tính tổng tiền. 
+
+CREATE FUNCTION Fn_TinhThanhTienDonHangMoiNhatKH 
+	(@maKH char(10))
+RETURNS MONEY
+AS
+BEGIN 
+	DECLARE @thanhTien MONEY;
+	SELECT @thanhTien =SUM(CTDH.soLuongDat*CTDH.donGia)
+	FROM dbo.DonDatHang_HoaDon AS DHD 
+	JOIN dbo.ChiTietDonHang AS CTDH ON CTDH.maHD = DHD.maHD
+	WHERE DHD.maKH = @maKH
+	GROUP BY DHD.maHD,DHD.ngayTaoDH
+	ORDER BY DHD.ngayTaoDH DESC
+	RETURN @thanhTien
+END;
+
+SELECT K.maKH , K.tenKH, dbo.Fn_TinhThanhTienDonHangMoiNhatKH(K.maKH) AS ThanhTien
+FROM dbo.KhachHang as K
