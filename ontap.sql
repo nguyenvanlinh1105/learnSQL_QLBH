@@ -323,3 +323,18 @@ END;
 
 SELECT K.maKH , K.tenKH, dbo.Fn_TinhThanhTienDonHangMoiNhatKH(K.maKH) AS ThanhTien
 FROM dbo.KhachHang as K
+
+
+		--4.2 Tạo procedure in ra thông tin khách hàng và thành tiền của đơn hàng mới nhất. 
+CREATE PROC pro_TinhThanhTienDonHangMoiNhatKH
+AS
+BEGIN 
+	SELECT TOP 1 K.maKH , K.tenKH ,DHD.maHD ,DHD.ngayTaoDH, SUM(CTDH.soLuongDat*CTDH.donGia) AS thanhTien
+	FROM dbo.khachHang AS K
+	JOIN dbo.DonDatHang_HoaDon AS DHD ON K.maKH = DHD.maKH
+	JOIN dbo.ChiTietDonHang AS CTDH ON DHD.maHD = CTDH.maHD
+	GROUP BY K.maKH , K.tenKH ,DHD.maHD ,DHD.ngayTaoDH
+	ORDER BY DHD.ngayTaoDH DESC
+END;
+
+EXEC dbo.pro_TinhThanhTienDonHangMoiNhatKH

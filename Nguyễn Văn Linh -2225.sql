@@ -836,3 +836,27 @@ BEGIN
 END;
 
 EXEC dbo.pro_TongTienThuTheoTG @ThangNam = '2023-6' ;
+
+
+-- BÀI TẬP TRIGGER 
+/*
+1.Viết các trigger để (có kiểm tra số lượng còn với số lượng đặt – có kết hợp với discount): 
+ a,Khi insert – update – delete ở bảng ChiTietDonHang 
+		i.tăng/giảm số lượng ở bảng SanPham 
+       ii .cập nhật đơn giá bán ở bảng ChiTietDonHang theo giá bán hiện tại (được lưu ở bảng SanPham)  
+ b,Khi insert – update – delete ở bảng ChiTietPhieuNhap 
+     i.tăng/giảm số lượng ở bảng SanPham  
+    ii.cập nhật đơn giá bán ở bảng SanPham (lãi 30%) 
+Có thể viết riêng các trigger cho từng sự kiện trên 1 table, hoặc gộp lại - đi kèm với câu lệnh IF exists (select từ Inserted hoặc Deleted).
+
+*/
+CREATE TRIGGER trig_CTDH
+ON dbo.ChiTietDonHang
+AFTER INSERT , UPDATE, DELETE 
+AS 
+BEGIN 
+	
+END;
+
+select *from dbo.ChiTietDonHang
+
