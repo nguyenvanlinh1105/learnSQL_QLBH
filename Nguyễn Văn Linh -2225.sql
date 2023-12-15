@@ -850,13 +850,93 @@ EXEC dbo.pro_TongTienThuTheoTG @ThangNam = '2023-6' ;
 Có thể viết riêng các trigger cho từng sự kiện trên 1 table, hoặc gộp lại - đi kèm với câu lệnh IF exists (select từ Inserted hoặc Deleted).
 
 */
-CREATE TRIGGER trig_CTDH
+ALTER TRIGGER trig_CTDH
 ON dbo.ChiTietDonHang
 AFTER INSERT , UPDATE, DELETE 
 AS 
 BEGIN 
-	
+	If not exists(select * from inserted) 
+	--➔ đã DELETE data
+	-- Khi xoa 1 san pham
+		UPDATE dbo.SanPham 
+		SET SanPham.soLuongHienCon = SanPham.soLuongHienCon + d.soLuongDat 
+		FROM deleted AS d
+		WHERE SanPham.maSP = d.maSP
+	If not exists(select * from deleted) 
+	--➔ đã INSERT data
+		-- Khi them moi insert  
+		UPDATE dbo.SanPham 
+		SET SanPham.soLuongHienCon = SanPham.soLuongHienCon - i.soLuongDat
+		FROM inserted AS i
+		WHERE SanPham.maSP = i.maSP;
+	Else
+	--➔ có Update data
+		-- khi update
+		UPDATE SanPham
+        SET SanPham.soLuongHienCon = SanPham.soLuongHienCon + d.soLuongDat - i.soLuongDat
+        FROM inserted AS i, deleted AS d 
+		WHERE i.maSP = d.maSP and i.maHD = d.maHD
+	UPDATE dbo.ChiTietDonHang 
+	SET donGia = P.donGiaBan 
+	FROM dbo.SanPham AS P
+	WHERE P.maSP = ChiTietDonHang.maSP
 END;
+
+/*check
+select *from dbo.SanPham
 
 select *from dbo.ChiTietDonHang
 
+INSERT INTO dbo.ChiTietDonHang 
+VALUES ('2225002224', '2225014929', 10,NULL)
+
+ALTER TABLE dbo.ChiTietDonHang
+ALTER COLUMN donGia money NULL;
+select * from dbo.DonDatHang_HoaDon
+
+DELETE  dbo.ChiTietDonHang
+WHERE maSP =2225014929 and maHD =2225002224
+
+*/
+---1. b lãi 30% có nghĩa là nhập thêm một san phẩm thì đơn giá bán sẽ giảm đ
+CREATE TRIGGER  trig_CTPN
+ON [dbo].[ChiTietPhieuNhap]
+AFTER INSERT , UPDATE, DELETE 
+AS 
+BEGIN 
+	If not exists(select * from inserted) 
+	--➔ đã DELETE data
+	-- Khi xoa 1 san pham
+
+		UPDATE dbo.SanPham 
+		SET soLuongHienCon =soLuongHienCon  - d.soLuongNhap, donGiaBan = donGiaBan *0.7
+		FROM deleted AS d
+		WHERE d.maSP = SanPham.maSP 
+	If not exists(select * from deleted) 
+	--➔ đã INSERT data
+		-- Khi them moi insert  
+		UPDATE dbo.SanPham 
+        SET soLuongHienCon = soLuongHienCon + i.soLuongNhap,
+            donGiaBan = i.giaNhap * 1.3 
+        FROM inserted AS i
+        WHERE i.maSP = SanPham.maSP
+	Else
+	--➔ có Update data
+		-- khi update
+		UPDATE dbo.SanPham
+        SET soLuongHienCon =soLuongHienCon  -d.soLuongNhap +i.soLuongNhap,
+            donGiaBan = donGiaBan + (i.giaNhap * 1.3 - d.giaNhap * 1.3)
+        FROM inserted AS i, deleted AS d
+		WHERE i.maPN = i.maPN and i.maSP = d.maSP and i.maSP = SanPham.maSP
+       
+END;
+
+select *  from dbo.SanPham WHERE maSP =2225014024
+
+INSERT INTO dbo.ChiTietPhieuNhap 
+VALUES ('2220345524','2225014024', 200, 30000)
+
+INSERT INTO dbo.PhieuNhap
+VALUES('2220345524','2225012524','12-2-2023')      
+DELETE dbo.ChiTietPhieuNhap
+WHERE maPN ='2220345524'
