@@ -171,7 +171,7 @@ VALUES
 set dateformat dmy
 INSERT INTO dbo.DonDatHang_HoaDon
 VALUES
-	('2225001328','2225000024','2225001024','23/1/2023',N'Vinh-Nghệ An','0123451234','12345','12/11/2023','14/11/2023','BT'),
+	('2225001724','2225000024','2225000424','03-06-2023',N'Vinh-Nghệ An','0123451234','12345','12/11/2023','14/11/2023','BT'),
 	('2225001424','2225000124','2225001124','13/2/2023',N'Nam Đàn-Nghệ An','0123456755','12346','12/11/2023','14/11/2023',default),
 	('2225001524','2225000224','2225002224','3/3/2023',N'Tương Dương-Nghệ An','0123456756','12347','12/11/2023','14/11/2023','ER'),
 	('2225001624','2225000324','2225003324','25/4/2023',N'Cửa Lò-Nghệ An','0123456757','12348','12/11/2023','14/11/2023','BT'),
@@ -270,7 +270,7 @@ SELECT c.maHD FROM dbo.ChiTietDonHang c
 --INSERT TABLE ChiTietDonHang
 INSERT INTO ChiTietDonHang
 VALUES
-	('2225001324','2225014224',0,15000),
+	('2225001724','2225014624',5,15000),
 	('2225033524','2225014024',55,100000),
 	('2225001524','2225014224',10,200000),
 	('2225001624','2225014324',60,350000),
@@ -401,7 +401,7 @@ VALUES
 --12hiển thị thông tin chi tiết của các sản phẩm mà có số lần nhập hàng nhiều nhất 
 			---(lưu ý trường hợp những sản phẩm cùng giá trị) with ties, hoặc có thể dùng subquery Select top 1 with ties …. 
 
-SELECT sp.maSP, sp.tenSP
+SELECT sp.maSP, sp.tenSP,count(ct.maSP) soLanNhap
 FROM dbo.SanPham as sp
 	JOIN dbo.ChiTietPhieuNhap as ct on ct.maSP= sp.maSP
 GROUP BY sp.maSP, sp.tenSP
@@ -412,6 +412,13 @@ HAVING count(ct.maSP) in (
 	ORDER BY count(ct.maSP) DESC
 );
 
+-- Làm với join 
+SELECT top 1 S.maSP , S.tenSP , COUNT(*) AS soLanNhap
+FROM dbo.SanPham AS S
+JOIN dbo.ChiTietPhieuNhap AS CTPN ON S.maSP = CTPN.maSP
+GROUP BY S.maSP , S.tenSP 
+
+
 
 --13hiển thị thông tin chi tiết của các nhà cung cấp mà có số lần nhập hàng lớn hơn 2 count – group - having 
 
@@ -421,6 +428,13 @@ FROM dbo.NhaCungCap as ncc
 	JOIN dbo.ChiTietPhieuNhap as ct on ct.maPN = pn.maPN
 GROUP BY ncc.maNCC, ncc.tenNCC
 HAVING count(pn.maNCC) >2
+
+
+SELECT N.maNCC , N.tenNCC , COUNT(*) soLanNhap
+FROM dbo.NhaCungCap AS N 
+JOIN dbo.PhieuNhap  AS P ON N.maNCC = P.maNCC 
+GROUP BY N.maNCC, N.tenNCC
+HAVING COUNT(*)>2
 
 
 /*
@@ -436,6 +450,15 @@ SELECT sp.*,
 		ELSE  N'Hàng còn đủ dùng'
 	END as Canhbao
 FROM dbo.SanPham as sp
+
+
+SELECT * ,
+	CASE 
+		WHEN S.soLuongHienCon<5 THEN N'Nhập hàng gấp'
+		ELSE N'Hang còn đủ dùng'
+	END AS CanhBao
+FROM dbo.SanPham AS S
+
 /*
 Câu 2:Hãy viết câu truy vấn để xuất câu thông báo:
 "Không đủ số lượng đặt" nếu tồn tại một sản phẩm có số lượng đặt vượt quá số lượng 
@@ -451,6 +474,14 @@ if exists (SELECT ddh.*
 else
 	print N'Đăt hàng thành công'
 
+IF exists (SELECT ddh.*
+		FROM dbo.DonDatHang_HoaDon DDH, dbo.ChiTietDonHang CTDH, dbo.SanPham AS S
+		WHERE DDH.maHD = CTDH.maHD AND CTDH.maSP = S.maSP
+		AND DDH.maHD='2225001324'
+		AND CTDH.soLuongDat >S.soLuongHienCon) 
+		print N'Không đủ số lượng đặt'
+ELSE
+	print N'Đăt hàng thành công'
 
 
 
@@ -460,17 +491,48 @@ else
 Viết các đoạn lệnh để thực hiện các công việc sau: */
 --1Hãy xuất dạng Text giá tiền của những sản phẩm có giá tiền lớn nhất 
 
-SELECT CONCAT(N'Sản phẩm ', maSP, N' có giá tiền là ', FORMAT(donGiaBan, 'C')) AS GiaTien
+SELECT CONCAT(N'Sản phẩm ', maSP, N' có giá tiền là ', FORMAT(donGiaBan, 'C', 'vi-VN')) AS GiaTien
 FROM SanPham
 WHERE donGiaBan = (SELECT MAX(donGiaBan) FROM SanPham);
 
+
+SELECT CONCAT(N'Sản phẩm ',maSP , N' có gia tiền là: ', FORMAT(donGiaBan, 'C', 'vi-VN')) AS GiaTien
+FROM dbo.SanPham AS S
+WHERE donGiaBan = (SELECT MAX(donGiaBan) FROM dbo.SanPham) 
+
 --2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng sản phẩm, và chèn dữ liệu vào bảng sản phẩm 
 -- Tìm giá trị id tiếp theo
+
 DECLARE @NextId BIGINT; 
 SELECT @NextId = (MAX(CAST(SanPham.maSP AS BIGINT))+ 1) FROM SanPham;
 -- Chèn bản ghi mới vào bảng SanPham
 INSERT INTO SanPham ( maSP, tenSP, donGiaBan, soLuongHienCon, soLuongCanDuoi)
 VALUES ( CAST(@NextId AS VARCHAR(10)), N'Bánh kẹo hải hà', 10000, 50, 10);
+
+-- Function 
+ALTER FUNCTION fn_IdAuto
+()
+returns char(10)
+as
+begin 
+	-- tinh id tiep theo
+	Declare @idNext bigint;
+	select @idNext = convert(decimal,max(maSP))+1 from dbo.SanPham
+	return convert(char,format(@idNext,'D10'));
+end
+SELECT dbo.fn_IdAuto() AS maspnext;
+-- Sử dụng hàm trong truy vấn SELECT
+select * from dbo.ChiTietDonHang
+
+CREATE FUNCTION idNextSP ()
+RETURNS CHAR(10)
+AS
+BEGIN 
+	-- tinh id tiếp theo 
+	DECLARE @idNext DECIMAL;-- BIGINT
+	SELECT @idNext = CONVERT(DECIMAL,max(maSP))+1 FROM dbo.SanPham
+	print CONVERT(Char, format(@idNext,'D10'))
+END;
 
 -- kiểm tra thay đổi 
 select * from dbo.SanPham
@@ -699,20 +761,7 @@ select *
     JOIN dbo.DonDatHang_HoaDon AS d ON c.maHD = d.maHD
 -- Câu 1 b-- làm với cách làm khác
 
--- Function 
-ALTER FUNCTION fn_IdAuto
-()
-returns char(10)
-as
-begin 
-	-- tinh id tiep theo
-	Declare @idNext bigint;
-	select @idNext = convert(decimal,max(maSP))+1 from dbo.SanPham
-	return convert(char,format(@idNext,'D10'));
-end
-SELECT dbo.fn_IdAuto() AS maspnext;
--- Sử dụng hàm trong truy vấn SELECT
-select * from dbo.ChiTietDonHang
+
 
 
 ALTER FUNCTION dbo.Fn_tinhTienGiamChoDonHang
@@ -857,25 +906,35 @@ AS
 BEGIN 
 	If not exists(select * from inserted) 
 	--➔ đã DELETE data
-	-- Khi xoa 1 san pham
-		UPDATE dbo.SanPham 
-		SET SanPham.soLuongHienCon = SanPham.soLuongHienCon + d.soLuongDat 
-		FROM deleted AS d
-		WHERE SanPham.maSP = d.maSP
+		BEGIN 
+			UPDATE dbo.SanPham 
+			SET SanPham.soLuongHienCon = SanPham.soLuongHienCon + d.soLuongDat 
+			FROM deleted AS d
+			WHERE SanPham.maSP = d.maSP
+		END;
 	If not exists(select * from deleted) 
-	--➔ đã INSERT data
-		-- Khi them moi insert  
-		UPDATE dbo.SanPham 
-		SET SanPham.soLuongHienCon = SanPham.soLuongHienCon - i.soLuongDat
-		FROM inserted AS i
-		WHERE SanPham.maSP = i.maSP;
+	--➔ đã INSERT data 
+		BEGIN 
+			UPDATE dbo.SanPham 
+			SET SanPham.soLuongHienCon = SanPham.soLuongHienCon - i.soLuongDat
+			FROM inserted AS i
+			WHERE SanPham.maSP = i.maSP;
+		END;
 	Else
 	--➔ có Update data
-		-- khi update
-		UPDATE SanPham
-        SET SanPham.soLuongHienCon = SanPham.soLuongHienCon + d.soLuongDat - i.soLuongDat
-        FROM inserted AS i, deleted AS d 
-		WHERE i.maSP = d.maSP and i.maHD = d.maHD
+	-- Thắc mắc :  tại sao khi update phải update bé hơn soLuongDat ban dầu thì nó mới cho update 
+		BEGIN 
+			DECLARE @temp int;
+			select @temp = d.soLuongDat -i.soLuongDat
+			from inserted i, deleted d
+			WHERE i.maSP = d.maSP and i.maHD = d.maHD
+			print @temp
+
+			UPDATE SanPham
+			SET SanPham.soLuongHienCon = SanPham.soLuongHienCon +@temp
+			FROM inserted AS i, deleted AS d 
+			WHERE i.maSP = d.maSP and i.maHD = d.maHD
+		END;
 	UPDATE dbo.ChiTietDonHang 
 	SET donGia = P.donGiaBan 
 	FROM dbo.SanPham AS P
@@ -885,17 +944,21 @@ END;
 /*check
 select *from dbo.SanPham
 
-select *from dbo.ChiTietDonHang
+select *from dbo.ChiTietDonHang where maHD ='2225002224' and maSP = '2225014024'
 
 INSERT INTO dbo.ChiTietDonHang 
-VALUES ('2225002224', '2225014929', 10,NULL)
+VALUES ('2225002224', '2225014024', 500,NULL)
+
+UPDATE dbo.ChiTietDonHang 
+SET soLuongDat = 300 
+where maHD ='2225002224' and maSP = '2225014024'
 
 ALTER TABLE dbo.ChiTietDonHang
 ALTER COLUMN donGia money NULL;
 select * from dbo.DonDatHang_HoaDon
 
 DELETE  dbo.ChiTietDonHang
-WHERE maSP =2225014929 and maHD =2225002224
+WHERE maHD ='2225002224' and maSP = '2225014024'
 
 */
 ---1. b lãi 30% có nghĩa là nhập thêm một san phẩm thì đơn giá bán sẽ giảm đ
@@ -907,7 +970,6 @@ BEGIN
 	If not exists(select * from inserted) 
 	--➔ đã DELETE data
 	-- Khi xoa 1 san pham
-
 		UPDATE dbo.SanPham 
 		SET soLuongHienCon =soLuongHienCon  - d.soLuongNhap, donGiaBan = donGiaBan *0.7
 		FROM deleted AS d

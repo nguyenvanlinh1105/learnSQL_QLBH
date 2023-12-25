@@ -191,7 +191,6 @@ else
 
 
 
-
 	-----	-----	-----	-----	-----	-----	-----	-----
 	--1Hãy xuất dạng Text giá tiền của những sản phẩm có giá tiền lớn nhất 
 SELECT CONCAT(N'Sản phẩm ',maSP,N' có giá bán là ',FORMAT(donGiaBan,'C', 'vi-VN')) AS GiaTien
@@ -297,6 +296,17 @@ GROUP BY K.maKH
 --4Hãy viết đoạn lệnh để tính tiền cho đơn hàng mới nhất (đơn hàng vừa được mua).  
 		--(Đơn hàng mới nhất là đơn hàng có thời gian gần nhất) 
 
+SELECT TOP 1 K.maKH , K.tenKH , DDH.maHD ,DDH.ngayTaoDH ,SUM(CTDH.soLuongDat *CTDH.donGia) ThanhTien
+FROM dbo.KhachHang AS K
+JOIN dbo.DonDatHang_HoaDon AS DDH ON K.maKH = DDH.maKH
+JOIN dbo.ChiTietDonHang AS CTDH ON CTDH.maHD = DDH.maHD
+JOIN dbo.SanPham AS S ON S.maSP = CTDH.maSP
+	--WHERE DDH.ngayTaoDH IN (SELECT TOP 1 ngayTaoDH FROM dbo.DonDatHang_HoaDon D  WHERE D.maKH IS NOT NULL ORDER BY D.ngayTaoDH DESC)
+GROUP BY K.maKH , K.tenKH , DDH.maHD ,DDH.ngayTaoDH 
+ORDER BY DDH.ngayTaoDH DESC
+
+SELECT * From dbo.DonDatHang_HoaDon ORDER BY ngayTaoDH DESC
+
 SELECT TOP 1 DHD.maHD, K.maKH, K.tenKH,DHD.ngayTaoDH, SUM(CTDH.donGia*CTDH.soLuongDat)AS ThanhTien
 FROM dbo.KhachHang AS K
 JOIN dbo.DonDatHang_HoaDon AS DHD ON K.maKH = DHD.maKH
@@ -324,8 +334,8 @@ END;
 SELECT K.maKH , K.tenKH, dbo.Fn_TinhThanhTienDonHangMoiNhatKH(K.maKH) AS ThanhTien
 FROM dbo.KhachHang as K
 
-
-		--4.2 Tạo procedure in ra thông tin khách hàng và thành tiền của đơn hàng mới nhất. 
+-- Trường hợp chèn mã sản phẩm vào sẽ gây ra lỗi 
+--4.2 Tạo procedure in ra thông tin khách hàng và thành tiền của đơn hàng mới nhất. 
 CREATE PROC pro_TinhThanhTienDonHangMoiNhatKH
 AS
 BEGIN 
@@ -338,3 +348,8 @@ BEGIN
 END;
 
 EXEC dbo.pro_TinhThanhTienDonHangMoiNhatKH
+
+--7Viết đoạn lệnh để tính khuyến mãi theo điều kiện sau: nếu đơn hàng trên 1 triệu thì được giảm 10%,
+		--cứ tăng thêm 1 triệu nữa thì được giảm thêm 2% nữa (tối đa giảm 30%) 
+
+CREATE FUNCTION dbo.TinhKhuyenMai (
