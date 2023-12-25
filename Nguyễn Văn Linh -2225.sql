@@ -496,9 +496,9 @@ FROM SanPham
 WHERE donGiaBan = (SELECT MAX(donGiaBan) FROM SanPham);
 
 
-SELECT CONCAT(N'Sản phẩm ',maSP , N' có gia tiền là: ', FORMAT(donGiaBan, 'C', 'vi-VN')) AS GiaTien
-FROM dbo.SanPham AS S
-WHERE donGiaBan = (SELECT MAX(donGiaBan) FROM dbo.SanPham) 
+SELECT CONCAT(N'Sản phẩm ', maSP, N' có giá tiền là ', FORMAT(donGiaBan, 'C', 'vi-VN')) AS GiaTien
+FROM dbo.SanPham 
+WHERE donGiaBan = (SELECT MAX(donGiaBan) FROM SanPham) 
 
 --2Hãy viết đoạn lệnh để tìm giá trị id tiếp theo của bảng sản phẩm, và chèn dữ liệu vào bảng sản phẩm 
 -- Tìm giá trị id tiếp theo
@@ -529,7 +529,7 @@ RETURNS CHAR(10)
 AS
 BEGIN 
 	-- tinh id tiếp theo 
-	DECLARE @idNext DECIMAL;-- BIGINT
+	DECLARE @idNext bigint;-- BIGINT
 	SELECT @idNext = CONVERT(DECIMAL,max(maSP))+1 FROM dbo.SanPham
 	print CONVERT(Char, format(@idNext,'D10'))
 END;
@@ -586,7 +586,6 @@ GROUP BY  k.tenKH,k.maKH,d.maHD,d.ngayGiaoHang
 	--kiểm tra xem có đơn hàng nào mà tồn tại số lượng mua lớn hơn số lượng hiện có 
       ---> nếu có thì cập nhật số lượng hiện còn của các sản phẩm nằm trong giỏ hàng mà có số lượng đặt lớn hơn số lượng hiện còn
 			--bằng cách gán về số lượng đặt là 0 
-
 
 
 DECLARE @maHDToUpdate char(10);
@@ -651,6 +650,15 @@ FROM dbo.KhachHang k
 JOIN dbo.DonDatHang_HoaDon dh ON k.maKH = dh.maKH
 JOIN dbo.ChiTietDonHang ct ON ct.maHD = dh.maHD
 GROUP BY k.tenKH , k.maKH
+
+
+SELECT K.tenKH, K.maKH, COUNT(DDH.maHD)AS 'soLanMua',
+	CASE
+		WHEN COUNT(DDH.maHD)
+	END;
+FROM dbo.KhachHang AS K
+JOIN dbo.DonDatHang_HoaDon AS DDH ON K.maKH = DDH.maKH
+GROUP BY DDH.maHD
     -- mặc dù ở DonDatHang_HoaDon có 17 row nhưng tổng ố lần mua ở đây chỉ có 15 là vì ở trong bảng khách hàng có 2 row
 		   -- maKH ==NULL nên nó không thể GROUP BY lại và select được 
 
@@ -962,43 +970,87 @@ WHERE maHD ='2225002224' and maSP = '2225014024'
 
 */
 ---1. b lãi 30% có nghĩa là nhập thêm một san phẩm thì đơn giá bán sẽ giảm đ
-CREATE TRIGGER  trig_CTPN
-ON [dbo].[ChiTietPhieuNhap]
-AFTER INSERT , UPDATE, DELETE 
-AS 
-BEGIN 
-	If not exists(select * from inserted) 
-	--➔ đã DELETE data
-	-- Khi xoa 1 san pham
-		UPDATE dbo.SanPham 
-		SET soLuongHienCon =soLuongHienCon  - d.soLuongNhap, donGiaBan = donGiaBan *0.7
-		FROM deleted AS d
-		WHERE d.maSP = SanPham.maSP 
-	If not exists(select * from deleted) 
-	--➔ đã INSERT data
-		-- Khi them moi insert  
-		UPDATE dbo.SanPham 
-        SET soLuongHienCon = soLuongHienCon + i.soLuongNhap,
-            donGiaBan = i.giaNhap * 1.3 
-        FROM inserted AS i
-        WHERE i.maSP = SanPham.maSP
-	Else
-	--➔ có Update data
-		-- khi update
-		UPDATE dbo.SanPham
-        SET soLuongHienCon =soLuongHienCon  -d.soLuongNhap +i.soLuongNhap,
-            donGiaBan = donGiaBan + (i.giaNhap * 1.3 - d.giaNhap * 1.3)
-        FROM inserted AS i, deleted AS d
-		WHERE i.maPN = i.maPN and i.maSP = d.maSP and i.maSP = SanPham.maSP
-       
-END;
+ALTER TRIGGER tr_ChiTietPhieuNhap
+ON ChiTietPhieuNhap
+AFTER INSERT,delete, update
+AS
+BEGIN
+	begin transaction
+	DECLARE @giaCu MONEY;
+	If not exists (select * from deleted)
+		begin
+			--Hành động insert
+			--tăng số lượng ở bảng SanPham
+			UPDATE SanPham
+			SET soLuongHienCon = soLuongHienCon + i.tgsoLuongNhap 
+			FROM (select maSP, sum(soLuongNhap) as tgsoLuongNhap
+					from inserted
+					group by maSP) i
+			WHERE SanPham.maSP=i.maSP
 
-select *  from dbo.SanPham WHERE maSP =2225014024
+			--cập nhật đơn giá bán ở bảng SanPham (lãi 30%) 
+			UPDATE SanPham
+			set @giaCu = donGiaBan, donGiaBan = i.giaNhap * 1.3
+			from inserted i
+			where SanPham.maSP=i.maSP
+		end
+	else
+		if not exists (select * from inserted)
+			begin
+				--hành động delete
+				--giảm số lượng ở bảng SanPham
+				Update SanPham
+				set soLuongHienCon = soLuongHienCon -d.soLuongNhap
+				from deleted d
+				where SanPham.maSP=d.maSP
+
+				--Cập nhật đơn giá bán ở bảng SanPham
+				Update SanPham
+				set donGiaBan = (select TOP 1 c.giaNhap
+								from ChiTietPhieuNhap c, SanPham s
+								where c.maSP = s.maSP
+								order by c.maPN desc
+								)
+				from deleted d
+				where SanPham.maSP = d.maSP
+			end
+		else
+			begin
+			 if update (soLuongNhap)
+			 begin
+				--hành động update
+				--thay đổi số lượng ở bảng SanPham
+				update SanPham
+				set soLuongHienCon = soLuongHienCon - d.soLuongNhap + i.soLuongNhap
+				from deleted d, inserted i
+				WHERE SanPham.maSP=d.maSP and SanPham.maSP=i.maSP
+				
+				--Cập nhật đơn giá bán ở bảng SanPham 
+				UPDATE SanPham
+				set donGiaBan = i.giaNhap * 1.3
+				from inserted i
+				where SanPham.maSP=i.maSP
+					if 
+						exists (select * from ChiTietPhieuNhap
+								where soLuongNhap <1)
+						rollback transaction
+					else
+						commit
+				
+				end
+			else
+			rollback
+	end
+END
+
+select *  from dbo.SanPham WHERE maSP =2225014024 or maSP=2225014224
 
 INSERT INTO dbo.ChiTietPhieuNhap 
-VALUES ('2220345524','2225014024', 200, 30000)
+VALUES ('2220345524','2225014024', 200, 100000),
+('2220345524','2225014224', 200, 45000000)
 
 INSERT INTO dbo.PhieuNhap
-VALUES('2220345524','2225012524','12-2-2023')      
+VALUES('2220345524','2225012524','12-2-2023') 
+
 DELETE dbo.ChiTietPhieuNhap
-WHERE maPN ='2220345524'
+WHERE maPN ='2220345524' and maSP='2225014224'
