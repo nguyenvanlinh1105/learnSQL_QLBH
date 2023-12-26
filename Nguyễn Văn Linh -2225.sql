@@ -920,6 +920,7 @@ BEGIN
 			FROM deleted AS d
 			WHERE SanPham.maSP = d.maSP
 		END;
+	save tran sp1;
 	If not exists(select * from deleted) 
 	--➔ đã INSERT data 
 		BEGIN 
@@ -972,75 +973,75 @@ WHERE maHD ='2225002224' and maSP = '2225014024'
 ---1. b lãi 30% có nghĩa là nhập thêm một san phẩm thì đơn giá bán sẽ giảm đ
 ALTER TRIGGER tr_ChiTietPhieuNhap
 ON ChiTietPhieuNhap
-AFTER INSERT,delete, update
+AFTER INSERT, DELETE, UPDATE
 AS
 BEGIN
-	begin transaction
+	BEGIN TRANSACTION
+
 	DECLARE @giaCu MONEY;
-	If not exists (select * from deleted)
-		begin
-			--Hành động insert
-			--tăng số lượng ở bảng SanPham
-			UPDATE SanPham
-			SET soLuongHienCon = soLuongHienCon + i.tgsoLuongNhap 
-			FROM (select maSP, sum(soLuongNhap) as tgsoLuongNhap
-					from inserted
-					group by maSP) i
-			WHERE SanPham.maSP=i.maSP
 
-			--cập nhật đơn giá bán ở bảng SanPham (lãi 30%) 
-			UPDATE SanPham
-			set @giaCu = donGiaBan, donGiaBan = i.giaNhap * 1.3
-			from inserted i
-			where SanPham.maSP=i.maSP
-		end
-	else
-		if not exists (select * from inserted)
-			begin
-				--hành động delete
-				--giảm số lượng ở bảng SanPham
-				Update SanPham
-				set soLuongHienCon = soLuongHienCon -d.soLuongNhap
-				from deleted d
-				where SanPham.maSP=d.maSP
+	IF NOT EXISTS (SELECT * FROM deleted)
+	BEGIN
+		-- Hành động insert
+		-- Tăng số lượng ở bảng SanPham
+		UPDATE SanPham
+		SET soLuongHienCon = soLuongHienCon + i.soLuongNhap
+		FROM inserted i
+		WHERE SanPham.maSP = i.maSP
 
-				--Cập nhật đơn giá bán ở bảng SanPham
-				Update SanPham
-				set donGiaBan = (select TOP 1 c.giaNhap
-								from ChiTietPhieuNhap c, SanPham s
-								where c.maSP = s.maSP
-								order by c.maPN desc
-								)
-				from deleted d
-				where SanPham.maSP = d.maSP
-			end
-		else
-			begin
-			 if update (soLuongNhap)
-			 begin
-				--hành động update
-				--thay đổi số lượng ở bảng SanPham
-				update SanPham
-				set soLuongHienCon = soLuongHienCon - d.soLuongNhap + i.soLuongNhap
-				from deleted d, inserted i
-				WHERE SanPham.maSP=d.maSP and SanPham.maSP=i.maSP
-				
-				--Cập nhật đơn giá bán ở bảng SanPham 
+		-- Cập nhật đơn giá bán ở bảng SanPham (lãi 30%) 
+		UPDATE SanPham
+		SET @giaCu = donGiaBan, donGiaBan = i.giaNhap * 1.3
+		FROM inserted i
+		WHERE SanPham.maSP = i.maSP
+	END
+	ELSE
+		IF NOT EXISTS (SELECT * FROM inserted)
+		BEGIN
+			-- Hành động delete
+			-- Giảm số lượng ở bảng SanPham
+			UPDATE SanPham
+			SET soLuongHienCon = soLuongHienCon - d.soLuongNhap
+			FROM deleted d
+			WHERE SanPham.maSP = d.maSP
+
+			-- Cập nhật đơn giá bán ở bảng SanPham
+			UPDATE SanPham
+			SET donGiaBan = (SELECT TOP 1 c.giaNhap
+							FROM ChiTietPhieuNhap c, SanPham s
+							WHERE c.maSP = s.maSP
+							ORDER BY c.maPN DESC
+							)
+			FROM deleted d
+			WHERE SanPham.maSP = d.maSP
+		END
+		ELSE
+		BEGIN
+			IF UPDATE(soLuongNhap)
+			BEGIN
+				-- Hành động update
+				-- Thay đổi số lượng ở bảng SanPham
 				UPDATE SanPham
-				set donGiaBan = i.giaNhap * 1.3
-				from inserted i
-				where SanPham.maSP=i.maSP
-					if 
-						exists (select * from ChiTietPhieuNhap
-								where soLuongNhap <1)
-						rollback transaction
-					else
-						commit
-				
-				end
-			else
-			rollback
-	end
+				SET soLuongHienCon = soLuongHienCon - d.soLuongNhap + i.soLuongNhap
+				FROM deleted d, inserted i
+				WHERE SanPham.maSP = d.maSP AND SanPham.maSP = i.maSP
+
+				-- Cập nhật đơn giá bán ở bảng SanPham 
+				UPDATE SanPham
+				SET donGiaBan = i.giaNhap * 1.3
+				FROM inserted i
+				WHERE SanPham.maSP = i.maSP
+
+				-- Kiểm tra nếu số lượng nhập nhỏ hơn 1, rollback transaction
+				IF EXISTS (SELECT * FROM ChiTietPhieuNhap WHERE soLuongNhap < 1)
+					ROLLBACK TRANSACTION
+				ELSE
+					COMMIT
+			END
+		END
+	ELSE
+		ROLLBACK
+
 END
 
 select *  from dbo.SanPham WHERE maSP =2225014024 or maSP=2225014224
